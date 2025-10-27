@@ -1,0 +1,68 @@
+import csv
+import os
+import datetime
+from flask import Flask, request, jsonify
+
+# --- Configuración del Servidor Web (Flask) ---
+app = Flask(__name__)
+
+# Nombre del archivo donde guardaremos los datos
+CSV_FILE = 'reportes_mosquitos.csv'
+# Definimos las columnas que tendrá nuestro CSV
+CSV_HEADER = ['Fecha', 'Direccion', 'Latitud', 'Longitud', 'Descripcion']
+
+# Función para verificar si el archivo CSV existe y tiene encabezado
+def inicializar_csv():
+    # 'file_exists' será True si el archivo ya existe
+    file_exists = os.path.isfile(CSV_FILE)
+    
+    # Si el archivo no existe, lo creamos y escribimos el encabezado
+    if not file_exists:
+        with open(CSV_FILE, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(CSV_HEADER)
+        print(f"Archivo {CSV_FILE} creado con encabezado.")
+
+# --- Ruta para recibir reportes ---
+@app.route('/report', methods=['POST'])
+def recibir_reporte():
+    try:
+        # 1. Obtener los datos JSON del reporte
+        data = request.json
+        
+        direccion = data.get('direccion', 'N/A')
+        lat = data.get('lat', 'N/A')
+        lng = data.get('lng', 'N/A')
+        descripcion = data.get('descripcion', '')
+        
+        print(f"Reporte recibido: {direccion}, {lat}, {lng}")
+
+        # 2. Guardar los datos en el archivo CSV
+        fecha_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Prepara la fila
+        fila = [fecha_hora, direccion, lat, lng, descripcion]
+        
+        # Abre el archivo en modo 'append' (añadir)
+        # 'newline=""' es importante para que el módulo csv maneje bien los saltos de línea
+        with open(CSV_FILE, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(fila)
+        
+        # 3. Responder al cliente
+        return jsonify({
+            "status": "success",
+            "message": "Reporte guardado en CSV."
+        }), 200
+
+    except Exception as e:
+        print(f"Error procesando el reporte: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error interno del servidor: {e}"
+        }), 500
+
+# --- Punto de entrada ---
+if __name__ == '__main__':
+    inicializar_csv() # Llama a la función de inicialización antes de arrancar
+    app.run(host='0.0.0.0', port=5000, debug=True)
