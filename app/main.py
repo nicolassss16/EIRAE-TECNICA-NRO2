@@ -44,7 +44,6 @@ async def pagina_de_testing(request: Request):
     return templates.TemplateResponse("test.html", {"request": request})
 
 
-# --- 5. Evento de "Startup" (para añadir datos de prueba) ---
 @app.on_event("startup")
 def on_startup():
     """
@@ -54,16 +53,16 @@ def on_startup():
     db = database.SessionLocal()
     
     # Verificamos si ya existe un sensor de prueba
-    sensor1 = db.query(models.Sensor).filter(models.Sensor.nombre == "Sensor-Plaza-Central").first()
+    sensor1 = db.query(models.Sensor).filter(models.Sensor.nombre == "Sensor-OBELISCO").first()
     if not sensor1:
-        print("Creando sensor de prueba: Sensor-Plaza-Central")
-        sensor1 = models.Sensor(nombre="Sensor-Plaza-Central", lat=-34.6037, lon=-58.3816)
+        print("Creando sensor de prueba: Sensor-OBELISCO")
+        sensor1 = models.Sensor(nombre="Sensor-OBELISCO", lat=-34.6037, lon=-58.3816)
         db.add(sensor1)
         
-    sensor2 = db.query(models.Sensor).filter(models.Sensor.nombre == "Sensor-Zona-Industrial").first()
+    sensor2 = db.query(models.Sensor).filter(models.Sensor.nombre == "Sensor-Palermo").first()
     if not sensor2:
-        print("Creando sensor de prueba: Sensor-Zona-Industrial")
-        sensor2 = models.Sensor(nombre="Sensor-Zona-Industrial", lat=-34.5830, lon=-58.4330)
+        print("Creando sensor de prueba: Sensor-Palermo")
+        sensor2 = models.Sensor(nombre="Sensor-Palermo", lat=-34.5830, lon=-58.4330)
         db.add(sensor2)
     
     db.commit()
