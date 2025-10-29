@@ -87,16 +87,51 @@
         let allSensorData = [];
         let markers = {};
         
-        // ¡NUEVO!
         let sensorChartInstance = null; // Para guardar la instancia del gráfico
         let reportMarkersLayer = L.layerGroup(); // Capa para los reportes
 
-        // --- Función Principal (Se ejecuta al cargar) ---
+        // --- ¡NUEVO! ---
+        // Para saber qué sensor está seleccionado y mantenerlo actualizado
+        let sensorSeleccionadoId = null; 
+
+        // --- Función Principal (¡MODIFICADA!) ---
         document.addEventListener("DOMContentLoaded", function() {
             inicializarMapa();
-            cargarDatosDeRiesgo();
-            cargarYMostrarReportes(); // ¡NUEVO!
+            
+            // 1. Hacemos la carga inicial de datos
+            recargarDatosCompletos(); 
+
+            // 2. Configuramos la auto-recarga
+            // Puedes cambiar este valor (en milisegundos)
+            const TIEMPO_RECARGA = 60000; // 60 segundos
+
+            setInterval(recargarDatosCompletos, TIEMPO_RECARGA);
         });
+
+        // --- ¡NUEVA FUNCIÓN! ---
+        // Agrupa toda la lógica de recarga de datos
+        async function recargarDatosCompletos() {
+            console.log("Recargando datos del dashboard...");
+            try {
+                // 1. Carga los datos principales (sensores, KPIs, mapa)
+                // (Esta función ya llama a actualizarDashboardUI internamente)
+                await cargarDatosDeRiesgo(); 
+
+                // 2. Carga los reportes comunitarios
+                await cargarYMostrarReportes();
+
+                // 3. ¡IMPORTANTE! Si había un sensor seleccionado,
+                // actualiza su panel de detalle y su gráfico.
+                if (sensorSeleccionadoId) {
+                    console.log(`Actualizando detalle para sensor ${sensorSeleccionadoId}`);
+                    // Volvemos a llamar a la función.
+                    // Esta usará el nuevo 'allSensorData' y recargará el historial.
+                    await mostrarDetalleSensor(sensorSeleccionadoId);
+                }
+            } catch (error) {
+                console.error("Error durante la recarga automática:", error);
+            }
+        }
 
         // --- 1. Inicializa el Mapa de Leaflet ---
         function inicializarMapa() {
@@ -125,7 +160,7 @@
             }
         }
 
-        // --- 3. ¡NUEVO! Carga los reportes comunitarios ---
+        // --- 3. Carga los reportes comunitarios ---
         async function cargarYMostrarReportes() {
             try {
                 const response = await fetch('/api/reports');
@@ -144,9 +179,9 @@
                 reportes.forEach(reporte => {
                     L.marker([reporte.lat, reporte.lon], { icon: reportIcon })
                         .addTo(reportMarkersLayer)
-                        .bindPopup(`<b>Reporte Comunitario</b><br>
-                                    Síntoma: ${reporte.tipo_sintoma}<br>
-                                    Hora: ${new Date(reporte.timestamp).toLocaleString()}<br>
+                        .bindPopup(`<b>Reporte Comunitario</b><br><br>
+                                    Síntoma: ${reporte.tipo_sintoma}<br><br>
+                                    Hora: ${new Date(reporte.timestamp).toLocaleString()}<br><br>
                                     Comentario: ${reporte.comentario || 'N/A'}`);
                 });
 
@@ -155,7 +190,7 @@
             }
         }
         
-        // --- ¡NUEVO! Función para mostrar/ocultar reportes ---
+        // --- Función para mostrar/ocultar reportes ---
         function toggleReportes(mostrar) {
             if (mostrar) {
                 map.addLayer(reportMarkersLayer);
@@ -164,16 +199,14 @@
             }
         }
 
-
         // --- 4. Actualiza todos los componentes de la UI ---
         function actualizarDashboardUI() {
-            // (Estas funciones son de la versión anterior)
             poblarListaSensores(allSensorData);
             pintarMarcadoresEnMapa(allSensorData);
             actualizarTarjetasKPI(allSensorData);
         }
 
-        // (Funciones 5 y 6 sin cambios)
+        // --- 5. Puebla la lista de sensores ---
         function poblarListaSensores(data) {
             const listElement = document.getElementById('sensor-list');
             listElement.innerHTML = '';
@@ -181,10 +214,17 @@
                 const li = document.createElement('li');
                 li.textContent = sensor.nombre;
                 li.dataset.sensorId = sensor.id;
+                // --- MODIFICADO --- 
+                // Añadimos la clase 'active' si coincide con el sensor seleccionado
+                if(sensor.id === sensorSeleccionadoId) {
+                    li.classList.add('active');
+                }
                 li.addEventListener('click', () => { mostrarDetalleSensor(sensor.id); });
                 listElement.appendChild(li);
             });
         }
+        
+        // --- 6. Pinta los marcadores en el mapa ---
         function pintarMarcadoresEnMapa(data) {
             Object.values(markers).forEach(marker => marker.remove());
             markers = {};
@@ -200,6 +240,8 @@
                 marker.on('click', () => { mostrarDetalleSensor(sensor.id); });
             });
         }
+        
+        // --- 6. (bis) Actualiza las tarjetas KPI ---
         function actualizarTarjetasKPI(data) {
             document.getElementById('kpi-sensores-activos').textContent = data.length;
             let riesgoAltoCount = data.filter(s => s.riesgo_epidemiologico === 'ALTO').length;
@@ -219,8 +261,12 @@
         }
 
 
-        // --- 7. (¡MUY ACTUALIZADA!) Muestra detalles Y EL GRÁFICO ---
+        // --- 7. Muestra detalles Y EL GRÁFICO (¡MODIFICADO!) ---
         async function mostrarDetalleSensor(sensorId) {
+            // --- ¡NUEVO! ---
+            // Guarda el ID del sensor seleccionado globalmente
+            sensorSeleccionadoId = sensorId;
+
             const sensor = allSensorData.find(s => s.id === sensorId);
             if (!sensor) return;
 
@@ -236,7 +282,7 @@
             // Centrar mapa
             map.setView([sensor.lat, sensor.lon], 14);
 
-            // Rellenar panel de información (igual que antes)
+            // Rellenar panel de información
             let html = `<h3>${sensor.nombre}</h3><ul>`;
             html += `<li><strong>Riesgo Epid.</strong> <span>${sensor.riesgo_epidemiologico}</span></li>`;
             html += `<li><strong>Calidad de Aire</strong> <span>${sensor.calidad_aire}</span></li>`;
@@ -257,7 +303,7 @@
             infoContent.innerHTML = html;
             infoPanel.style.display = 'block';
 
-            // --- ¡NUEVO! Cargar y renderizar el gráfico ---
+            // --- Cargar y renderizar el gráfico ---
             try {
                 const response = await fetch(`/api/sensor/${sensor.id}/history`);
                 if (!response.ok) throw new Error('No se pudo cargar el historial');
@@ -276,7 +322,7 @@
             }
         }
 
-        // --- 8. ¡NUEVO! Función para dibujar el gráfico ---
+        // --- 8. Función para dibujar el gráfico ---
         function renderizarGrafico(data) {
             const ctx = document.getElementById('sensorChart').getContext('2d');
             
