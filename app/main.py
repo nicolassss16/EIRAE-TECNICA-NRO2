@@ -5,34 +5,36 @@ from fastapi.templating import Jinja2Templates
 from . import api, database, models # Importamos los módulos
 
 # --- 1. Inicializa la Base de Datos ---
-# Esto crea el archivo eirae.db y las tablas si no existen
 database.init_db()
 
 
 # --- 2. Crear la Aplicación FastAPI ---
-# ¡AQUÍ SE CREA 'app'!
 app = FastAPI(title="Servidor Eirae v2.0")
 
 # Monta la carpeta 'static'
+# (Asegúrate de que 'app/static' sea la ruta correcta donde está tu CSS)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Ubica la carpeta 'templates'
 templates = Jinja2Templates(directory="app/templates")
 
 
 # --- 3. Incluir las rutas de la API ---
-# Esto registra automáticamente /api/map_data, /api/ingest/sensor, etc.
 app.include_router(api.router)
 
 
-# --- 4. Definir las rutas de las Páginas Web ---
-# (Ahora 'app' SÍ existe y puede ser usada)
+# --- 4. Definir la ruta de la Página Web (¡MODIFICADO!) ---
 @app.get("/", response_class=HTMLResponse)
 async def pagina_de_inicio(request: Request):
+    """
+    Sirve la página principal (index.html), que AHORA CONTIENE
+    tanto la sección de inicio como el dashboard.
+    """
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/dashboard", response_class=HTMLResponse)
-async def pagina_de_dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+# --- ¡YA NO NECESITAMOS ESTA RUTA! ---
+# @app.get("/dashboard", response_class=HTMLResponse)
+# async def pagina_de_dashboard(request: Request):
+#     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 @app.get("/test", response_class=HTMLResponse)
 async def pagina_de_testing(request: Request):
@@ -65,4 +67,5 @@ def on_startup():
         db.add(sensor2)
     
     db.commit()
+
     db.close()
