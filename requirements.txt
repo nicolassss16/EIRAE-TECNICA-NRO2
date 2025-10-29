@@ -3,4 +3,5 @@ uvicorn[standard]
 pydantic
 jinja2
 sqlalchemy
+python-multipart
 httpx
